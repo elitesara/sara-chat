@@ -2,29 +2,44 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
 
-// 1. تحديد الصفحة التي سيراها الموظف أو العميل
+// 1. إعداد بوت الواتساب
+const client = new Client({
+    authStrategy: new LocalAuth()
+});
+
+client.on('qr', (qr) => {
+    // سيظهر لك كود QR في الـ Terminal هنا
+    console.log('سجل دخولك للواتساب عبر مسح الكود التالي:');
+    qrcode.generate(qr, { small: true });
+});
+
+client.on('ready', () => {
+    console.log('بوت الواتساب جاهز لاستقبال إشعارات الشات! ✅');
+});
+
+client.initialize();
+
+// 2. إعداد واجهة الشات
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
 
-// 2. البدء في مراقبة "الاتصالات الجديدة"
 io.on('connection', (socket) => {
-    console.log('هناك شخص دخل إلى المحادثة الآن! ✅');
-
-    // عندما يرسل شخص رسالة
     socket.on('chat message', (msg) => {
-        console.log('رسالة جديدة: ' + msg);
-        // إرسال الرسالة لكل الموجودين في الشات
+        console.log('رسالة من المتجر: ' + msg);
+        
+        // إرسال تنبيه فوراً لجوالك (استبدل الرقم برقمك بصيغة دولية بدون +)
+        const myNumber = "9665xxxxxxxx"; // ضع رقمك هنا
+        client.sendMessage(`${myNumber}@c.us`, `📦 عميلة جديدة في المتجر تقول: \n"${msg}"`);
+        
         io.emit('chat message', msg);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('شخص غادر المحادثة ❌');
     });
 });
 
-// 3. تشغيل السيرفر على جهازك
-http.listen(3000, () => {
-    console.log('نظام المحادثة يعمل الآن على: http://localhost:3000');
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, '0.0.0.0', () => {
+    console.log(`نظام Elite Sara يعمل على المنفذ ${PORT}`);
 });
